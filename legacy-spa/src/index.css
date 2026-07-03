@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk", sans-serif;
+  --font-serif: "Spectral", serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  /* Brutalist Sovereign Custom Colors */
+  --color-obsidian: #07100F;
+  --color-gold-crust: #C9A24B;
+  --color-border-structural: #1C3A38;
+  --color-cotton-muted: #9FB0AC;
+  --color-cotton-lace: #ECE6D4;
+  --color-surface: #0c1514;
+  --color-surface-teal: #0C1B1A;
+  --color-surface-container: #182120;
+  --color-surface-variant: #2d3735;
+  --color-on-surface: #dae5e2;
+  --color-rust: #B5563A;
+  --color-teal-bright: #2E6F6A;
+  --color-surface-container-low: #141d1c;
+  --color-surface-container-high: #222c2b;
+  --color-surface-container-highest: #2d3735;
+  --color-surface-container-lowest: #07100f;
+  --color-primary: #ebc166;
+}
+
+body {
+  background-color: #07100F;
+  color: #dae5e2;
+  font-family: var(--font-serif);
+}
+
+* {
+  border-radius: 0px !important;
+}
+
+@keyframes goldPulse {
+  0%, 100% {
+    background-color: #C9A24B;
+    filter: drop-shadow(0 0 2px #C9A24B);
+  }
+  50% {
+    background-color: #ebc166;
+    filter: drop-shadow(0 0 10px #ebc166) drop-shadow(0 0 20px #C9A24B);
+  }
+}
+
+.animate-gold-pulse {
+  animation: goldPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes terminalFlicker {
+  0% {
+    opacity: 0.35;
+    filter: brightness(0.7) contrast(1.3);
+  }
+  15% {
+    opacity: 0.95;
+    filter: brightness(1.35) contrast(0.9);
+  }
+  30% {
+    opacity: 0.5;
+    filter: brightness(0.8) contrast(1.1);
+  }
+  45% {
+    opacity: 0.9;
+    filter: brightness(1.1) contrast(1);
+  }
+  60% {
+    opacity: 0.65;
+    filter: brightness(0.9);
+  }
+  75% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  90% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+.animate-terminal-flicker {
+  animation: terminalFlicker 0.4s ease-out;
+}
+

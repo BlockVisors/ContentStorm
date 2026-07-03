@@ -1,0 +1,80 @@
+{
+  "name": "content-storm",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "worker:ingest": "tsx src/workers/ingest.worker.ts",
+    "worker:persona-scan": "tsx src/workers/persona-scan.worker.ts",
+    "worker:contradiction-map": "tsx src/workers/contradiction-map.worker.ts",
+    "worker:synthesis": "tsx src/workers/synthesis.worker.ts",
+    "worker:image-generation": "tsx src/workers/image-generation.worker.ts",
+    "worker:render": "tsx src/workers/render.worker.ts",
+    "worker:clip-render": "tsx src/workers/clip-render.worker.ts",
+    "worker:mint-credential": "tsx src/workers/mint-credential.worker.ts",
+    "worker:drift-scan": "tsx src/workers/drift-scan.worker.ts",
+    "worker:arbitrage-scan": "tsx src/workers/arbitrage-scan.worker.ts",
+    "register-eas-schema": "tsx scripts/register-eas-schema.ts",
+    "validate": "tsx scripts/validate.ts"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+
+    "@clerk/nextjs": "^6.9.0",
+
+    "@prisma/client": "^6.1.0",
+
+    "bullmq": "^5.34.0",
+    "ioredis": "^5.4.1",
+
+    "@anthropic-ai/sdk": "^0.32.0",
+    "openai": "^4.77.0",
+
+    "stripe": "^17.7.0",
+
+    "@aws-sdk/client-s3": "^3.716.0",
+    "@aws-sdk/s3-request-presigner": "^3.716.0",
+
+    "ethers": "^6.13.4",
+    "@ethereum-attestation-service/eas-sdk": "^2.7.0",
+
+    "@remotion/lambda": "^4.0.290",
+
+    "jsdom": "^25.0.1",
+    "@mozilla/readability": "^0.5.0",
+    "pdf-parse": "^1.1.1",
+
+    "archiver": "^7.0.1",
+
+    "dotenv": "^16.4.7",
+
+    "zod": "^3.24.1",
+    "swr": "^2.2.5",
+    "lucide-react": "^0.469.0",
+    "recharts": "^2.15.0",
+
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.2",
+    "prisma": "^6.1.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/jsdom": "^21.1.7",
+    "@types/archiver": "^6.0.3"
+  },
+  "overrides": {
+    "ioredis": "^5.4.1"
+  }
+}

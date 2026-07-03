@@ -1,0 +1,649 @@
+// ============================================================================
+// CONTENT STORM — CANONICAL SCHEMA
+// Blueprint §6. PostgreSQL (Supabase) + pgvector, accessed via Prisma.
+//
+// pgvector note: Prisma has no native vector type. `SourceChunk.embedding` is
+// declared Unsupported("vector(1536)"); the extension is managed by Prisma via
+// the postgresqlExtensions preview feature, and the HNSW index is created in a
+// raw SQL migration (prisma/migrations/.../migration.sql). Read/write of the
+// embedding column goes through src/lib/vector.ts using $queryRaw/$executeRaw.
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")  // pooled (pgbouncer) — used by the app
+  directUrl  = env("DIRECT_URL")    // direct — used by migrations
+  extensions = [vector]
+}
+
+// ============================================================================
+// 1. TENANCY, IDENTITY & BILLING
+// ============================================================================
+
+model Organization {
+  id                   String           @id @default(uuid())
+  clerkOrgId           String?          @unique // set for Clerk Organizations (enterprise); null for PLG personal workspaces
+  name                 String
+  tier                 SubscriptionTier @default(FREE)
+  stripeCustomerId     String?          @unique
+  stripeSubscriptionId String?          @unique // needed to attach/detach add-on subscription items (§4.3)
+
+  // ── V2-3: 5-tier billing shape ────────────────────────────────────────────
+  billingModel       BillingModel @default(FLAT)
+  seatCount          Int?         // Enterprise Sandbox only — null for individual tiers
+  meteredOverageRate Float?       // Architect only — informational $/credit; Stripe is the source of truth for actual billing
+
+  // ── V2-3: à la carte add-ons — open to every paid tier (D4, corrected) ────
+  hasArbitrageAddon         Boolean @default(false)
+  hasOnChainCredentialAddon Boolean @default(false)
+  hasPremiumComputeAddon    Boolean @default(false)
+  hasFederatedEdgeAddon     Boolean @default(false)
+  hasClipperAddon           Boolean @default(false)
+
+  sovereignContractTerms Json? // white-glove overrides for Sovereign deals
+
+  members         User[]
+  notebooks       Notebook[]
+  modules         CourseModule[]
+  personaProfiles PersonaProfile[]
+  driftRisks      DriftRisk[]
+  federatedNodes  FederatedNode[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model User {
+  id           String         @id // Clerk user ID (user_xxx)
+  orgId        String
+  org          Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  email        String         @unique
+  role         MemberRole     @default(CREATOR)
+  stormCredits Int            @default(50) // cached balance; CreditLedger is the source of truth
+  ledger       CreditLedger[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([orgId])
+}
+
+model CreditLedger {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta     Int // +grant / -spend
+  reason    String // "monthly_grant", "image_gen", "render"
+  refId     String? // job/module that consumed it
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Per-persona avatar + voice config. Seeded per org on creation; the Avatar
+// engine reads this to assign a distinct face + ElevenLabs voice (and
+// temperament direction) to each of the 5 roles.
+model PersonaProfile {
+  id               String       @id @default(uuid())
+  orgId            String
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  persona          PersonaType
+  avatarProviderId String       @default("") // HeyGen/Tavus avatar id
+  voiceId          String       @default("") // ElevenLabs voice id
+  voiceDirection   String       @db.Text // "sharp, fast" / "measured, deep"
+
+  @@unique([orgId, persona])
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  ARCHITECT
+  ENTERPRISE_SANDBOX
+  SOVEREIGN
+}
+
+enum BillingModel {
+  FLAT    // Free, Pro
+  METERED // Architect — included allotment + usage-based overage
+  SEAT    // Enterprise Sandbox — per-seat, annual minimum
+  CUSTOM  // Sovereign — negotiated contract
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  CREATOR
+}
+
+// ============================================================================
+// 2. THE VAULT — INGEST & VECTORS
+// ============================================================================
+
+model Notebook {
+  id           String           @id @default(uuid())
+  orgId        String
+  org          Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title        String
+  vectorStatus ProcessingStatus @default(PENDING)
+  chunks       SourceChunk[]
+  modules      CourseModule[]
+  createdAt    DateTime         @default(now())
+
+  driftRisksAsSiloA DriftRisk[] @relation("DriftRiskNotebookA")
+  driftRisksAsSiloB DriftRisk[] @relation("DriftRiskNotebookB")
+
+  @@index([orgId])
+}
+
+model SourceChunk {
+  id         String                       @id @default(uuid())
+  notebookId String
+  notebook   Notebook                     @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  content    String                       @db.Text
+  sourceRef  String // filename / URL + page/offset
+  embedding  Unsupported("vector(1536)")? // managed via raw SQL — see src/lib/vector.ts
+  createdAt  DateTime                     @default(now())
+
+  arbitrageEvents ArbitrageEvent[]
+
+  @@index([notebookId])
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ============================================================================
+// 3. THE NEXUS + CRUCIBLE — CORE ENGINE
+// ============================================================================
+
+model CourseModule {
+  id               String              @id @default(uuid())
+  orgId            String
+  org              Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  notebookId       String?
+  notebook         Notebook?           @relation(fields: [notebookId], references: [id])
+  title            String
+
+  perspectives     ExpertPerspective[]
+  contradictionMap ContradictionMap?
+  scriptBlocks     ScriptBlock[]
+  renderJob        RenderJob?
+  assessments      AssessmentSession[]
+  deployment       DeploymentProfile?
+  clipAssets       ClipAsset[]
+  arbitrageEvents  ArbitrageEvent[]
+
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([orgId])
+}
+
+enum PersonaType {
+  PRACTITIONER
+  ACADEMIC
+  SKEPTIC
+  ECONOMIST
+  HISTORIAN
+}
+
+model ExpertPerspective {
+  id                 String       @id @default(uuid())
+  moduleId           String
+  module             CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  persona            PersonaType
+  corePosition       String       @db.Text
+  supportingEvidence String       @db.Text
+  uniqueInsight      String       @db.Text
+  createdAt          DateTime     @default(now())
+
+  @@unique([moduleId, persona]) // exactly one row per persona per module
+}
+
+model ContradictionMap {
+  id                  String       @id @default(uuid())
+  moduleId            String       @unique
+  module              CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  clashPoints         Json
+  strongestView       String       @db.Text
+  weakestView         String       @db.Text
+  resolvingQuestion   String       @db.Text
+  universalAgreements String       @db.Text
+  fieldBlindSpots     String       @db.Text
+}
+
+model ScriptBlock {
+  id           String           @id @default(uuid())
+  moduleId     String
+  module       CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  order        Int // timeline coordinate, not just sort key — render reflows on reorder
+  sectionTitle String
+  textContent  String           @db.Text
+
+  videoStyle   VideoStyle       @default(FACELESS)
+  imagePrompt  String?          @db.Text
+  imageUrl     String?
+  mediaStatus  ProcessingStatus @default(PENDING)
+  isLocked     Boolean          @default(false) // pin against auto-regen
+
+  clipAssets   ClipAsset[]
+
+  @@unique([moduleId, order])   // timeline coordinate — one block per position
+  @@index([moduleId, order])
+}
+
+enum VideoStyle {
+  AVATAR
+  WHITEBOARD
+  FACELESS
+}
+
+// ============================================================================
+// 3b. THE ARBITRAGE CLIPPER — V2-10
+// ============================================================================
+
+// Not a ScriptBlock with a magic order:999 — a clip is a derived, parallel
+// artifact (short-form re-cut), not a chapter in the module's linear
+// timeline, and a second clip per module would collide with ScriptBlock's
+// @@unique([moduleId, order]) constraint under the order:999 approach the
+// source spec used. See V2 architecture doc §6.3.
+model ClipAsset {
+  id                  String            @id @default(uuid())
+  moduleId            String
+  module              CourseModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  sourceScriptBlockId String?           // nullable — a future Challenge Chamber transcript source needs no ScriptBlock at all
+  sourceScriptBlock   ScriptBlock?      @relation(fields: [sourceScriptBlockId], references: [id], onDelete: SetNull)
+
+  platformMode        ClipPlatformMode
+  targetPlatform       String           // "SHORTS_OPTIMAL" | "REELS_OPTIMAL" | "TIKTOK_MID" | "YOUTUBE_SHORT_MAX" — cosmetic label; platformMode drives rendering
+  sectionTitle        String
+  textContent          String           @db.Text  // full sliced script, flat — for display/search
+  beats                Json             // string[] — scene-segmented script, render-ready (§ note below)
+  ctaText              String?          @db.Text  // EDUCATOR mode only
+
+  videoStyle           VideoStyle       @default(FACELESS)
+  sourceImageUrl        String?         // denormalized from sourceScriptBlock at slice-time — stable even if the source's image later regenerates; null falls back to typography-only treatment, same pattern FacelessSequence already uses
+
+  mediaStatus          ProcessingStatus @default(PENDING)
+  compiledVideoUrl      String?
+  progress             Int              @default(0) // 0–100, mirrors RenderJob's polling shape
+
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([moduleId])
+}
+
+enum ClipPlatformMode {
+  RETAINER    // 15–30s  — single thesis + direct counter, aggressive kinetic typography
+  EDUCATOR    // 45–60s  — problem + two clashing views + blind spot, 3-beat stitch + CTA
+  DEEP_DIVER  // 90s–3m — full STORM arc, retention-reset visual shift every 10–15s
+}
+
+model RenderJob {
+  id               String           @id @default(uuid())
+  moduleId         String           @unique
+  module           CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  status           ProcessingStatus @default(PENDING)
+  progress         Int              @default(0) // 0–100
+  target           RenderTarget     @default(LMS_16_9)
+  compiledVideoUrl String?
+  rawAssetsArchive String? // .ZIP of stems
+  audioTrackUrl    String? // isolated .WAV
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+enum RenderTarget {
+  LMS_16_9
+  MOBILE_9_16
+  SQUARE_1_1
+}
+
+// ============================================================================
+// 4. THE CHALLENGE CHAMBER — ASSESSMENT
+// ============================================================================
+
+model AssessmentSession {
+  id                String           @id @default(uuid())
+  moduleId          String
+  module            CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  learnerInternalId String? // Clerk user (internal learners)
+  learnerExternalId String? // anonymous LTI launch
+  challengePrompt   String           @db.Text
+  userInitialThesis String?          @db.Text
+  status            AssessmentStatus @default(IN_PROGRESS)
+
+  // ── Canonical SRS (V2 — patent-aligned three-factor formula) ───────────────
+  // SRS = 0.40 * S_DR + 0.45 * S_GA + 0.15 * B_E — see src/lib/challenge.ts
+  srsScore          Int?             // 0–100, round(100 * SRS)
+  skepticDeflection Float?           // S_DR — Skeptic Deflection Rate, 0.00–1.00
+  sourceGrounding   Float?           // S_GA — Source Grounding Anchor, 0.00–1.00 (cosine-similarity derived)
+  biasEquilibrium   Float?           // B_E  — Bias Equilibrium, 0.00–1.00 (Shannon entropy derived)
+  collapseTimeline  Json?            // [{ round, drop, reason }] — round-by-round resilience trace
+  professorCritique String?          @db.Text
+
+  // ── Crisis Mode — weight-shifted SRS once baseline is passed ───────────────
+  isCrisisMode      Boolean          @default(false)
+
+  // ── Legacy V1 data — preserved, never migrated in place. A session has
+  //    either the canonical fields above OR these, never both populated. ─────
+  legacyResilienceScore Int?             // was `resilienceScore` (V1 5-vector sum)
+  legacyVectorBreakdown Json?             // was `vectorBreakdown` (V1 5-vector matrix)
+  legacyWeakestLink     String?  @db.Text // was `weakestLink`
+
+  rounds            ChallengeRound[]
+  credential        OnChainCredential?
+  createdAt         DateTime         @default(now())
+
+  @@index([moduleId])
+}
+
+model ChallengeRound {
+  id           String              @id @default(uuid())
+  sessionId    String
+  session      AssessmentSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  interrogator ChallengeInterrogator
+  agentAttack  String              @db.Text
+  userDefense  String?             @db.Text
+  createdAt    DateTime            @default(now())
+
+  @@index([sessionId])
+}
+
+// Deliberately NOT PersonaType. PersonaType is the 5 standing research
+// personas (ExpertPerspective.persona, PersonaProfile.persona) — each one a
+// real, independently-configured agent with its own avatar/voice. CATALYST
+// (V2-8) is not a 6th standing persona; it's a one-time fusion of Skeptic +
+// Economist for a single Crisis Mode escalation, and has no avatar/voice
+// profile of its own. Folding it into PersonaType would let broken data
+// exist elsewhere (an ExpertPerspective row with persona=CATALYST makes no
+// sense). This enum exists only for ChallengeRound.interrogator.
+enum ChallengeInterrogator {
+  PRACTITIONER
+  ACADEMIC
+  SKEPTIC
+  ECONOMIST
+  HISTORIAN
+  CATALYST
+}
+
+enum AssessmentStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+// ============================================================================
+// 4b. ON-CHAIN CREDENTIALS — V2-5
+// ============================================================================
+
+// One credential per completed AssessmentSession. Minting is async (real
+// blockchain transactions take seconds and can fail/retry) — this row tracks
+// the mint lifecycle the same way ClipAsset/RenderJob track their own render
+// lifecycles: PENDING at creation, PROCESSING once queued, MINTED or FAILED
+// once the worker resolves it.
+model OnChainCredential {
+  id        String            @id @default(uuid())
+  sessionId String            @unique
+  session   AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // userVerificationHash lets a third party (an employer) confirm THIS
+  // specific person earned THIS specific score without putting raw learner
+  // identity on a public, permanent ledger — sha256(learnerId + sessionId +
+  // srsScore), see src/lib/onchain.ts::buildVerificationHash. The hash is
+  // reproducible by Content Storm to confirm a claimed credential belongs to
+  // a specific learner, but not reversible by a third party holding only the
+  // hash — the point of "verifiable without exposing identity."
+  userVerificationHash String
+  moduleAnchor          String  // "CS-MOD-{moduleId}" — stable public module reference
+  finalSrs              Int
+  skepticDeflection     Float
+  sourceGrounding       Float
+  biasEquilibrium       Float
+
+  network         OnChainNetwork    @default(BASE)
+  txHash          String?
+  attestationUID  String?           @unique // EAS attestation UID — the actual on-chain verifiable pointer; null until MINTED
+  status          OnChainMintStatus @default(PENDING)
+  failureReason   String?           @db.Text
+
+  mintedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([sessionId])
+}
+
+enum OnChainNetwork {
+  BASE    // primary
+  POLYGON // fallback, if Base mint fails
+}
+
+enum OnChainMintStatus {
+  PENDING
+  PROCESSING
+  MINTED
+  FAILED
+}
+
+// ============================================================================
+// 5. THE PORT — DEPLOYMENT
+// ============================================================================
+
+model DeploymentProfile {
+  id               String       @id @default(uuid())
+  moduleId         String       @unique
+  module           CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  isPublic         Boolean      @default(false)
+  watermarkEnabled Boolean      @default(true) // forced true on FREE
+
+  // LTI 1.3 (Canvas / Workday / Honen)
+  ltiClientId        String? // our client_id registered with the platform
+  ltiDeploymentId    String? // platform deployment id
+  ltiPlatformOidcUrl String? // platform OIDC auth endpoint
+  ltiAccessTokenUrl  String? // platform OAuth2 token endpoint
+  ltiKeysetUrl       String? // platform public JWK set URL
+  ltiLineItemUrl     String? // AGS line item for grade passback
+
+  // xAPI / LRS
+  lrsEndpoint      String? // LRS base URL (e.g. https://lrs.example.com/xapi/)
+  lrsKey           String? // basic-auth key or bearer token for the LRS
+
+  // Headless webhook
+  webhookUrl       String?
+  webhookSecret    String? // HMAC-SHA256 signing secret
+
+  @@index([moduleId])
+}
+
+// LTI 1.3 OIDC state — short-lived nonce table for the login → launch flow.
+// Rows are written on /api/lti/login and consumed (deleted) on /api/lti/launch.
+model LtiState {
+  id          String   @id @default(uuid()) // the `state` param sent to the platform
+  nonce       String   @unique              // the `nonce` embedded in the id_token
+  moduleId    String   // which module this launch targets
+  deploymentId String  // ltiDeploymentId from the platform
+  redirectUri String   // the launch URL we told the platform to redirect back to
+  expiresAt   DateTime // state expires after 5 min — cron cleanup or TTL index
+  createdAt   DateTime @default(now())
+
+  @@index([expiresAt]) // for cleanup queries
+}
+
+// ============================================================================
+// 6. THE DRIFT DASHBOARD — V2-4
+// ============================================================================
+
+// Cross-silo inconsistency detection (V2 architecture doc §7.1). A DriftRisk
+// row is ONE detected contradiction between an assertion pulled from one
+// department's Notebook and an assertion pulled from another's — Sovereign
+// tier only, since this scans across an org's entire documentation corpus,
+// not a single module.
+//
+// orgId is required, not derived from a single module — the source doc's
+// original sketch scoped this to `moduleId`, but a cross-silo scan by
+// definition spans multiple departments/notebooks within one org; orgId is
+// the correct tenancy boundary for the assertOrg guard on /api/drift/*.
+model DriftRisk {
+  id     String       @id @default(uuid())
+  orgId  String
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Each side of the contradiction. notebookAId/notebookBId are the real,
+  // queryable source; siloA/siloB are a denormalized label snapshot (usually
+  // notebookA.title / notebookB.title at detection time) — kept even if the
+  // notebook is later renamed or deleted (onDelete: SetNull, not Cascade),
+  // since a DriftRisk is an audit-trail record an exec dashboard should still
+  // show after the underlying source material changes.
+  notebookAId String?
+  notebookA   Notebook? @relation("DriftRiskNotebookA", fields: [notebookAId], references: [id], onDelete: SetNull)
+  siloA       String    // e.g. "Product Engineering Documentation"
+  assertionA  String    @db.Text
+
+  notebookBId String?
+  notebookB   Notebook? @relation("DriftRiskNotebookB", fields: [notebookBId], references: [id], onDelete: SetNull)
+  siloB       String    // e.g. "Sales Practitioner Logs"
+  assertionB  String    @db.Text
+
+  divergenceScore Float  // 0.0–1.0 cosine distance between assertion embeddings — see src/lib/drift.ts
+  financialImpact String @db.Text // AI-modeled risk overhead estimate, human-readable
+  remediationPlan String @db.Text
+
+  // Set once auto-compile fires (divergenceScore > 0.85) — soft reference,
+  // not a formal relation: this is an audit-trail pointer for the dashboard
+  // to link to, not a constraint the remediation module's lifecycle should
+  // be bound by (deleting the remediation module shouldn't cascade back and
+  // mutate a historical risk record).
+  remediationModuleId String?
+
+  status    DriftStatus @default(OPEN)
+  createdAt DateTime    @default(now())
+
+  @@index([orgId])
+  @@index([orgId, status])
+}
+
+enum DriftStatus {
+  OPEN
+  REMEDIATED
+  DISMISSED
+}
+
+// ============================================================================
+// 7. THE CURRICULUM ARBITRAGE ENGINE — V2-6
+// ============================================================================
+
+// One ArbitrageEvent per detected "the outside world moved, this module
+// didn't" moment. Detection ALWAYS happens regardless of billing — only the
+// automatic REWRITE step is gated behind hasArbitrageAddon (§4.3). An org
+// without the add-on still gets the row (status stays PENDING) and a
+// dashboard notification; they just don't get auto-remediated until they
+// enable it or trigger a manual rewrite.
+//
+// sourceExcerpt and matchedChunkId aren't in the source spec's schema sketch
+// but are load-bearing for the actual rewrite step: Claude needs the real
+// external text (not just a URL) and the specific chunk it's meant to
+// update to write a grounded rewrite instead of guessing from a bare link.
+model ArbitrageEvent {
+  id       String       @id @default(uuid())
+  moduleId String
+  module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  sourceUrl     String
+  sourceType    ArbitrageSourceType
+  sourceExcerpt String              @db.Text // the actual external claim, not just its URL — Claude's rewrite prompt needs real content to ground on
+
+  matchedChunkId String?
+  matchedChunk   SourceChunk? @relation(fields: [matchedChunkId], references: [id], onDelete: SetNull)
+
+  // LLM-judged "how much this changes the existing curriculum," 0.0–1.0 — see
+  // src/lib/arbitrage.ts header comment for why this isn't raw embedding
+  // distance (same reasoning as DriftRisk.divergenceScore, V2-4).
+  semanticDelta  Float
+  affectedBlocks Json    // ScriptBlock IDs targeted for rewrite — isLocked blocks are never included, see arbitrage.ts
+
+  status     ArbitrageStatus @default(PENDING)
+  detectedAt DateTime        @default(now())
+  resolvedAt DateTime?
+
+  @@index([moduleId])
+  @@index([moduleId, status])
+}
+
+enum ArbitrageSourceType {
+  PATENT
+  ACADEMIC_JOURNAL
+  GITHUB_ADVISORY
+  REGULATORY_UPDATE
+  NEWS
+}
+
+enum ArbitrageStatus {
+  PENDING    // detected, awaiting either auto-rewrite or manual action
+  REWRITING  // Claude is actively rewriting affected blocks
+  REQUEUED   // rewrite complete, image regen + render queued — terminal success state
+  DISMISSED
+}
+
+// ============================================================================
+// 8. THE FEDERATED EDGE RUNTIME — V2-7
+// ============================================================================
+
+// One row per VPC/local-cluster deployment. This is NOT self-serve — the
+// source spec's own API table lists POST /api/federated/nodes as a plain
+// tenantRoute action, but that contradicts what the feature actually is:
+// deploying software into a client's firewall and exchanging real
+// infrastructure credentials is a white-glove operation Content Storm's own
+// ops team performs in coordination with the client, not something a
+// customer admin should be able to self-register via a web form. The doc's
+// own env var table already hints at the right answer — FEDERATED_NODE_SECRET
+// ("shared secret for VPC tunnel authentication") — so registration is
+// authenticated by that shared secret (held by Content Storm ops), not by
+// the calling org's Clerk session. See src/lib/federated.ts and
+// src/app/api/federated/nodes/route.ts for the full reasoning.
+//
+// Gate is hasFederatedEdgeAddon, not "ENTERPRISE tier" (the doc's table says
+// ENTERPRISE, a V1 tier name that no longer exists post-V2-3's 5-tier
+// ladder) — consistent with every other add-on, purchasable at any paid
+// tier, per the corrected V2-3 pricing model.
+model FederatedNode {
+  id            String       @id @default(uuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  nodeEndpoint  String // VPC or local cluster API endpoint (OpenAI-compatible /v1/chat/completions)
+  modelCluster  String // local model identifier, e.g. "llama-3.3-70b-instruct"
+
+  // Per-node bearer token, issued once at registration and never stored in
+  // plaintext — only its hash. The deployed node authenticates its own
+  // heartbeat calls with this token; it is NOT the same secret used to
+  // register the node in the first place (that's FEDERATED_NODE_SECRET,
+  // held only by Content Storm ops). Losing the raw token means
+  // re-registering the node, same as any bearer-token-issued-once system.
+  heartbeatTokenHash String
+
+  status        NodeStatus @default(PENDING)
+  lastHeartbeat DateTime?
+  createdAt     DateTime   @default(now())
+
+  @@index([orgId])
+}
+
+enum NodeStatus {
+  PENDING
+  ACTIVE
+  OFFLINE
+}
+
+
+
