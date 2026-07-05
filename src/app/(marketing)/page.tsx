@@ -1,7 +1,9 @@
 import Hero from "@/components/landing/Hero";
+import HowItWorks from "@/components/landing/HowItWorks";
 import PersonaQuintet from "@/components/landing/PersonaQuintet";
 import BlogRoll from "@/components/landing/BlogRoll";
 import Newsletter from "@/components/landing/Newsletter";
+import Pricing from "@/components/landing/Pricing";
 import Testimonials from "@/components/landing/Testimonials";
 import CitationsFeed from "@/components/landing/CitationsFeed";
 import FAQ from "@/components/landing/FAQ";
@@ -24,7 +26,7 @@ import SystemLogs from "@/components/landing/SystemLogs";
  * same three lines internally instead of receiving them from here.
  *
  * Section order matches the V2 doc's §4.1 component table exactly (Hero →
- * PersonaQuintet → BlogRoll → Newsletter → Testimonials → CitationsFeed →
+ * HowItWorks → PersonaQuintet → BlogRoll → Newsletter → Pricing → Testimonials → CitationsFeed →
  * FAQ → ContactForm → SystemLogs), which also matches what the original
  * App.tsx already rendered — no reordering.
  */
@@ -32,9 +34,11 @@ export default function LandingPage() {
   return (
     <>
       <Hero />
+      <HowItWorks />
       <PersonaQuintet />
       <BlogRoll />
       <Newsletter />
+      <Pricing />
       <Testimonials />
       <CitationsFeed />
       <FAQ />

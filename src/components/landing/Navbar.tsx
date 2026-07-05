@@ -15,8 +15,10 @@ export default function Navbar({ onScrollToSection, activeSection }: NavbarProps
 
   const navItems = [
     { label: t("intel"), id: "hero" },
+    { label: t("how_it_works"), id: "how-it-works" },
     { label: t("personas"), id: "personas" },
     { label: t("brevities"), id: "blog" },
+    { label: t("pricing"), id: "pricing" },
     { label: t("testimonials"), id: "testimonials" },
     { label: t("citations"), id: "citations" },
     { label: t("faq"), id: "faq" },

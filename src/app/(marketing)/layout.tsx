@@ -46,7 +46,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   };
 
   useEffect(() => {
-    const sections = ["hero", "personas", "blog", "testimonials", "citations", "faq", "contact"];
+    const sections = ["hero", "how-it-works", "personas", "blog", "pricing", "testimonials", "citations", "faq", "contact"];
 
     const handleScroll = () => {
       const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -133,6 +133,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               TERMINAL_INDEX
             </button>
             <button
+              onClick={() => handleScrollToSection("how-it-works")}
+              className="hover:text-gold-crust hover:underline transition-all cursor-pointer"
+            >
+              PROCESS_FLOW
+            </button>
+            <button
               onClick={() => handleScrollToSection("personas")}
               className="hover:text-gold-crust hover:underline transition-all cursor-pointer"
             >
@@ -143,6 +149,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               className="hover:text-gold-crust hover:underline transition-all cursor-pointer"
             >
               BREVITIES
+            </button>
+            <button
+              onClick={() => handleScrollToSection("pricing")}
+              className="hover:text-gold-crust hover:underline transition-all cursor-pointer"
+            >
+              PRICING_PLANS
             </button>
             <button
               onClick={() => handleScrollToSection("citations")}

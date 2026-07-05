@@ -569,6 +569,90 @@ export const translations: TranslationDictionary = {
     DE: "MIT PFEILTASTEN NAVIGIEREN // MIT ENTER AUSWÄHLEN",
     JA: "矢印キーで移動 // ENTERキーで決定",
     FR: "NAVIGUER AVEC LES FLÈCHES // SÉLECTIONNER AVEC ENTRÉE"
+  },
+  pricing: {
+    EN: "PRICING",
+    DE: "PREISGESTALTUNG",
+    JA: "料金プラン",
+    FR: "TARIFICATION"
+  },
+  pricing_title_sub: {
+    EN: "TIERS & METRICS // PRICING_VERIFICATION",
+    DE: "STUFEN & METRIKEN // PREIS_VERIFIZIERUNG",
+    JA: "ティア＆メトリクス // 料金プラン検証",
+    FR: "PALIERS & MÉTRIQUES // VÉRIFICATION_DE_TARIF"
+  },
+  pricing_title: {
+    EN: "THE COST OF KNOWLEDGE",
+    DE: "DIE KOSTEN DES WISSENS",
+    JA: "知識の対価",
+    FR: "LE COÛT DE LA CONNAISSANCE"
+  },
+  pricing_desc: {
+    EN: "Select your commitment. Pricing matches adversarial bandwidth and compute limits. Friction is the feature.",
+    DE: "Wählen Sie Ihr Engagement. Die Preise entsprechen der gegnerischen Bandbreite und den Berechnungsgrenzen. Reibung ist das Feature.",
+    JA: "コミットメントを選択してください。料金は敵対的な帯域幅と計算能力の制限に対応しています。摩擦こそが機能だ。",
+    FR: "Sélectionnez votre engagement. Les tarifs correspondent à la bande passante et aux limites de calcul de l'adversaire. La friction est la fonctionnalité."
+  },
+  addons_title: {
+    EN: "INTELLIGENT ADD-ONS",
+    DE: "INTELLIGENTE ZUSATZFUNKTIONEN",
+    JA: "インテリジェント・アドオン",
+    FR: "ADDONS INTELLIGENTS"
+  },
+  addons_desc: {
+    EN: "Enhance your compiler pipeline with modular à la carte capabilities, available on all plans.",
+    DE: "Erweitern Sie Ihre Compiler-Pipeline mit modularen À-la-carte-Funktionen, die für alle Pläne verfügbar sind.",
+    JA: "すべてのプランで利用可能な、モジュール式の単品機能でコンパイラ・パイプラインを強化します。",
+    FR: "Améliorez votre pipeline de compilation avec des fonctionnalités modulaires à la carte, disponibles sur tous les plans."
+  },
+  plan_cta_current: {
+    EN: "CURRENT TIER",
+    DE: "AKTUELLE STUFE",
+    JA: "現在のプラン",
+    FR: "PALIER ACTUEL"
+  },
+  plan_cta_select: {
+    EN: "SELECT PLAN",
+    DE: "PLAN AUSWÄHLEN",
+    JA: "プランを選択",
+    FR: "CHOISIR LE PLAN"
+  },
+  plan_cta_sales: {
+    EN: "CONTACT SALES",
+    DE: "VERTRIEB KONTAKTIEREN",
+    JA: "営業にお問い合わせ",
+    FR: "CONTACTER LE SERVICE COMMERCIAL"
+  },
+  plan_cta_free: {
+    EN: "GET STARTED",
+    DE: "LOSLEGEN",
+    JA: "始める",
+    FR: "COMMENCER"
+  },
+  how_it_works: {
+    EN: "HOW_IT_WORKS",
+    DE: "WIE_ES_FUNKTIONIERT",
+    JA: "仕組み",
+    FR: "COMMENT_ÇA_MARCHE"
+  },
+  how_it_works_title_sub: {
+    EN: "DIALECTIC PIPELINE // OPERATIONAL_FLOW",
+    DE: "DIALEKTISCHE PIPELINE // BETRIEBSABLAUF",
+    JA: "弁証法パイプライン // 運用フロー",
+    FR: "PIPELINE DIALECTIQUE // FLUX_OPÉRATIONNEL"
+  },
+  how_it_works_title: {
+    EN: "THE COMPILER SEQUENCE",
+    DE: "DIE COMPILER-SEQUENZ",
+    JA: "コンパイラシーケンス",
+    FR: "LA SÉQUENCE DU COMPILATEUR"
+  },
+  how_it_works_desc: {
+    EN: "How raw knowledge is ingested, stress-tested, synthesized, and verified on-chain. From documentation to attestation.",
+    DE: "Wie rohes Wissen ingestiert, stresstested, synthetisiert und on-chain verifiziert wird. Von der Dokumentation bis zur Attestierung.",
+    JA: "生データがどのように取り込まれ、ストレステストされ、統合され、オンチェーンで検証されるか。ドキュメント化から証明まで。",
+    FR: "Comment les connaissances brutes sont ingestées, testées sous pression, synthétisées et vérifiées sur la blockchain. Du document à l'attestation."
   }
 };
 
