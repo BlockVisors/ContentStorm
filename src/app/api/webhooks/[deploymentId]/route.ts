@@ -101,7 +101,7 @@ export const POST = tenantRoute(async (ctx, _req: Request, { params }: Ctx) => {
  * signature above — not called by this route, documented here since it's
  * the other half of the contract this endpoint defines.
  */
-export function verifyWebhookSignature(
+function verifyWebhookSignature(
   rawBody: string,
   secret: string,
   receivedSignatureHex: string

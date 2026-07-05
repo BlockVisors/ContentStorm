@@ -161,7 +161,10 @@ console.log("\n[6] Redis (BullMQ)");
 let redis: import("ioredis").default;
 try {
   const IORedis = (await import("ioredis")).default;
-  redis = new IORedis(process.env.REDIS_URL ?? "redis://127.0.0.1:6379", {
+  const rawRedis = process.env.REDIS_URL;
+  const isPlaceholderUrl = rawRedis?.includes("HOST:PORT") || rawRedis?.includes("PASSWORD");
+  const resolvedRedis = isPlaceholderUrl ? "redis://127.0.0.1:6379" : (rawRedis ?? "redis://127.0.0.1:6379");
+  redis = new IORedis(resolvedRedis, {
     maxRetriesPerRequest: null,
     lazyConnect: true,
   });
@@ -176,7 +179,7 @@ try {
 try {
   const { Queue } = await import("bullmq");
   const q = new Queue("__validate__", {
-    connection: redis!,
+    connection: redis! as any,
     defaultJobOptions: { removeOnComplete: true, removeOnFail: true },
   });
   const job = await q.add("probe", { ok: true });

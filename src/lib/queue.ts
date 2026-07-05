@@ -18,9 +18,13 @@ import IORedis from "ioredis";
 const g = globalThis as unknown as { _csRedis?: IORedis };
 
 // BullMQ requires maxRetriesPerRequest = null on the connection.
-export const connection =
+const rawRedisUrl = process.env.REDIS_URL;
+const isPlaceholder = rawRedisUrl?.includes("HOST:PORT") || rawRedisUrl?.includes("PASSWORD");
+const resolvedRedisUrl = isPlaceholder ? "redis://127.0.0.1:6379" : (rawRedisUrl ?? "redis://127.0.0.1:6379");
+
+export const connection: any =
   g._csRedis ??
-  new IORedis(process.env.REDIS_URL ?? "redis://127.0.0.1:6379", {
+  new IORedis(resolvedRedisUrl, {
     maxRetriesPerRequest: null,
   });
 if (process.env.NODE_ENV !== "production") g._csRedis = connection;
@@ -72,7 +76,7 @@ const queues = new Map<string, Queue>();
 function getQueue<T>(name: string): Queue<T> {
   let q = queues.get(name);
   if (!q) {
-    q = new Queue(name, { connection, defaultJobOptions });
+    q = new Queue(name, { connection: connection as any, defaultJobOptions });
     queues.set(name, q);
   }
   return q as Queue<T>;

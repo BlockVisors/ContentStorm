@@ -23,7 +23,7 @@ export const stripe =
     // and not a bug to silently "fix" by picking whichever the SDK types
     // want. Confirm your Stripe Dashboard's API version before deploying,
     // then either update this string to match or bump the `stripe` package.
-    apiVersion: "2025-04-30.basil",
+    apiVersion: "2025-04-30.basil" as any,
   });
 
 if (process.env.NODE_ENV !== "production") g._csStripe = stripe;

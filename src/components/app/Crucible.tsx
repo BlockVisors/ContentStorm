@@ -180,7 +180,7 @@ function ScriptBlockEditor({
         // Optimistic — show PROCESSING immediately without waiting for the PATCH response.
         globalMutate(
           `/api/blocks/${initialBlock.id}`,
-          (cur: BlockRow | undefined) => cur ? { ...cur, mediaStatus: "PROCESSING" } : cur,
+          (cur: BlockRow | undefined) => cur ? { ...cur, mediaStatus: "PROCESSING" as const } : cur,
           false
         );
       }

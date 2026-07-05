@@ -173,7 +173,7 @@ export async function POST(req: Request, { params }: Ctx) {
       skepticDeflection: result.skepticDeflection,
       sourceGrounding: result.sourceGrounding,
       biasEquilibrium: result.biasEquilibrium,
-      collapseTimeline: result.collapseTimeline,
+      collapseTimeline: result.collapseTimeline as any,
       professorCritique: result.professorCritique,
     },
     include: { rounds: { orderBy: { createdAt: "asc" } } },

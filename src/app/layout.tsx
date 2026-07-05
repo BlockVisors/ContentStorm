@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { LanguageProvider } from "@/context/LanguageContext";
 import "./globals.css";
 
 /**
@@ -29,7 +30,11 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body>{children}</body>
+        <body>
+          <LanguageProvider>
+            {children}
+          </LanguageProvider>
+        </body>
       </html>
     </ClerkProvider>
   );

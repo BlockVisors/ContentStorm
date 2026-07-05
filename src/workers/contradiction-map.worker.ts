@@ -135,20 +135,20 @@ const worker = new Worker<ContradictionMapJobData>(
       where:  { moduleId },
       create: {
         moduleId,
-        clashPoints:         output.clashPoints,
+        clashPoints:         output.clashPoints as any,
         strongestView:       output.strongestView,
         weakestView:         output.weakestView,
         resolvingQuestion:   output.resolvingQuestion,
-        universalAgreements: output.universalAgreements,
-        fieldBlindSpots:     output.fieldBlindSpots,
+        universalAgreements: output.universalAgreements as any,
+        fieldBlindSpots:     output.fieldBlindSpots as any,
       },
       update: {
-        clashPoints:         output.clashPoints,
+        clashPoints:         output.clashPoints as any,
         strongestView:       output.strongestView,
         weakestView:         output.weakestView,
         resolvingQuestion:   output.resolvingQuestion,
-        universalAgreements: output.universalAgreements,
-        fieldBlindSpots:     output.fieldBlindSpots,
+        universalAgreements: output.universalAgreements as any,
+        fieldBlindSpots:     output.fieldBlindSpots as any,
       },
     });
 
